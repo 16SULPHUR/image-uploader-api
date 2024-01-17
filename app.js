@@ -11,36 +11,61 @@ app.use(cors());
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
+const DB =
+  "mongodb+srv://akpatil51340:%40Ankit2005@cluster0.rwylpqs.mongodb.net/PhotoHub?retryWrites=true&w=majority";
+
+main().catch((err) => console.log(err));
+
+async function main() {
+  await mongoose.connect(DB);
+  console.log("connected to db");
+}
+
+app.get("/",(req, res)=>{
+  res.send(`Api For <a href="https://photohub.vercel.app">PhotoHub</a>`)
+})
+
 app.post("/upload", upload.array("files[]"), async (req, res) => {
   console.log("req.files::::::::::::");
   console.log(req.body)
   const cdnUrls = await uploadFiles(req.files);
+  console.log("GOT URLs")
   res.json(cdnUrls);
 });
 
 async function uploadFiles(files) {
   console.log("UploadFiles::::::::::");
 
-  let cdnUrls = [];
+  try {
+    // Use Promise.all to wait for all uploads to finish
+    const uploadPromises = files.map(async (file) => {
+      return uploadToCloudStorage(file.buffer, file.originalname);
+    });
 
-  files.forEach(async (file) => {
-    let cdnUrl = await uploadToCloudStorage(file.buffer, file.originalname);
-    cdnUrls.push(cdnUrl)
-  });
+    const cdnUrls = await Promise.all(uploadPromises);
 
-  return cdnUrls;
+    return cdnUrls;
+  } catch (error) {
+    console.error("Error uploading files:", error);
+    throw error;
+  }
 }
 
 async function uploadToCloudStorage(fileBuffer, fileName) {
-  const { uploadFile } = await import("@uploadcare/upload-client");
-  const file = await uploadFile(fileBuffer, {
-    publicKey: "80754a04d338b9eb4178",
-    fileName: fileName,
-    contentType: "image/jpeg", // Adjust the content type based on your file type
-  });
+  try {
+    const { uploadFile } = await import("@uploadcare/upload-client");
+    const file = await uploadFile(fileBuffer, {
+      publicKey: "80754a04d338b9eb4178",
+      fileName: fileName,
+      contentType: "image/jpeg", // Adjust the content type based on your file type
+    });
 
-  console.log(file.cdnUrl);
-  return file.cdnUrl;
+    console.log(file.cdnUrl);
+    return file.cdnUrl;
+  } catch (error) {
+    console.error("Error uploading to cloud storage:", error);
+    throw error;
+  }
 }
 
 app.listen(PORT, () => {
