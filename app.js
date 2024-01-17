@@ -2,6 +2,7 @@ const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
 const multer = require("multer");
+const Image = require("./Image");
 
 const PORT = 3001;
 
@@ -21,17 +22,54 @@ async function main() {
   console.log("connected to db");
 }
 
-app.get("/",(req, res)=>{
-  res.send(`Api For <a href="https://photohub.vercel.app">PhotoHub</a>`)
-})
+app.get("/", (req, res) => {
+  res.send(`Api For <a href="https://photohub.vercel.app">PhotoHub</a>`);
+});
 
 app.post("/upload", upload.array("files[]"), async (req, res) => {
   console.log("req.files::::::::::::");
-  console.log(req.body)
+  console.log(req.body);
   const cdnUrls = await uploadFiles(req.files);
-  console.log("GOT URLs")
-  res.json(cdnUrls);
+  console.log("GOT URLs");
+
+  if (req.body.userId) {
+    try {
+      const uploadPromises = await uploadToDB(req.body.userId, cdnUrls);
+
+      await Promise.all(uploadPromises);
+
+      // If all uploads to the DB are successful, send CDN URLs in the response
+      res.json(cdnUrls);
+    } catch (error) {
+      console.error("Error uploading to DB:", error);
+      res.status(500).json({ error: "Cannot upload images to the database" });
+    }
+  } else {
+    // If userId is not defined, send a 400 Bad Request status
+    res.status(400).json({ error: "User ID not defined" });
+  }
 });
+
+
+async function uploadToDB(userId, cdnUrls) {
+  // Use map to create an array of promises
+  const promises = cdnUrls.map(async (url) => {
+    const newImage = new Image({
+      userId: userId,
+      image: {
+        url: url,
+      },
+    });
+
+    // Use await to wait for the save operation to complete
+    await newImage.save();
+    return true;
+  });
+
+  // Use Promise.all to wait for all promises to resolve
+  return Promise.all(promises);
+}
+
 
 async function uploadFiles(files) {
   console.log("UploadFiles::::::::::");
