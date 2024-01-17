@@ -26,6 +26,21 @@ app.get("/", (req, res) => {
   res.send(`Api For <a href="https://photohub.vercel.app">PhotoHub</a>`);
 });
 
+app.get("/images", async (req,res)=>{
+  const body = req.query;
+
+  console.log(body)
+
+  if(body.userId){
+    const allImages = await Image.find({userId: body.userId})
+    console.log(allImages)
+    res.json(allImages)
+  }
+  else{
+    res.status(500).json({message: "userId not defined"})
+  }
+})
+
 app.post("/upload", upload.array("files[]"), async (req, res) => {
   console.log("req.files::::::::::::");
   console.log(req.body);
